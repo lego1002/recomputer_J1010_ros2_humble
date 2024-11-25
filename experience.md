@@ -73,6 +73,52 @@ sudo docker run --runtime nvidia -it --rm --privileged --network=host \
 echo $DISPLAY
 ```
 
+### 5. 製作容器腳本
+'''
+#!/bin/bash
+
+# 設定變數
+IMAGE_NAME="dustynv/ros:humble-desktop-l4t-r32.7.1"
+CONTAINER_NAME="ros2_container"
+WORKSPACE_DIR="$HOME/ros_ws"
+
+# 配置 X11 訪問
+xhost +local:root
+
+# 創建工作目錄（如果尚未存在）
+if [ ! -d "$WORKSPACE_DIR" ]; then
+    mkdir -p "$WORKSPACE_DIR"
+    echo "已創建工作目錄：$WORKSPACE_DIR"
+fi
+
+# 下載映像檔（如果尚未存在）
+if [[ "$(docker images -q $IMAGE_NAME 2> /dev/null)" == "" ]]; then
+    echo "正在下載 Docker 映像檔..."
+    docker pull $IMAGE_NAME
+fi
+
+# 啟動容器
+docker run --runtime nvidia -it --rm --privileged \
+    --network=host --name $CONTAINER_NAME -e DISPLAY=$DISPLAY \
+    -v /tmp/.X11-unix:/tmp/.X11-unix \
+    -v $HOME/.Xauthority:/root/.Xauthority \
+    -v $WORKSPACE_DIR:/ros_ws \
+    $IMAGE_NAME
+'''
+
+### 6. 製作開啟容器終端腳本
+'''
+#!/bin/bash
+
+CONTAINER_NAME="ros2_container"
+
+if docker ps | grep -q $CONTAINER_NAME; then
+    echo "正在進入容器 $CONTAINER_NAME 並初始化 ROS2 環境..."
+    docker exec -it $CONTAINER_NAME bash -c "if [ -f /opt/ros/humble/install/setup.bash ]; then source /opt/ros/humble/install/setup.bash; echo 'ROS2 環境已初始化'; else echo '找不到 /opt/ros/humble/install/setup.bash，請檢查容器內容'; fi; bash"
+else
+    echo "容器 $CONTAINER_NAME 尚未運行！請先啟動容器。"
+fi
+'''
 ---
-通過這次折騰，我學到了許多有關 Jetson Nano 和 Docker 的知識。雖然過程中遇到許多問題，但最終通過 dustynv/ros:humble-desktop-l4t-r32.7.1 映像檔成功運行了 ROS 2 Humble。如果你也遇到類似的問題，希望這篇文章能對你有所幫助！
+通過這次折騰，我學到了許多有關 Jetson Nano 和 Docker 的知識。雖然過程中遇到許多問題，但最終通過 dustynv/ros:humble-desktop-l4t-r32.7.1 映像檔成功運行了 ROS 2 Humble。
 
